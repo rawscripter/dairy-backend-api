@@ -17,7 +17,7 @@ router.post('/login',
   validateRequest({
     body: User,
   }),
-  login
+  login,
 );
 
 export default router;

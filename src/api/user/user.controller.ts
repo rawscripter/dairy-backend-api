@@ -1,7 +1,8 @@
 import { NextFunction, Request, Response } from 'express';
-import { User, Users } from './user.model';
+import { User, Users, UserWithOutPassword } from './user.model';
 import MessageResponse from '../../interfaces/MessageResponse';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 export const register = async (req:Request<{}, MessageResponse, User>, res:Response<MessageResponse>, next:NextFunction) => {
   try {
@@ -21,18 +22,31 @@ export const register = async (req:Request<{}, MessageResponse, User>, res:Respo
   }
 };
 
-export const login = async (req:Request<{}, MessageResponse, User>, res:Response<MessageResponse>, next:NextFunction) => {
+export const login = async (req:Request<{}, {}, User>, res:Response<{}>, next:NextFunction) => {
   try {
     const { email, password } = req.body;
     const dbUser = await Users.findOne({ email: email });
     if (!dbUser) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'User not found' });
     }
     const isPasswordValid = bcrypt.compareSync(password, dbUser.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'User not found' });
     }
-    res.status(200).json({ message: 'Login successful' });
+    // create jwt token for user
+    const token = jwt.sign({ id: dbUser._id }, process.env.JWT_SECRET as string, {
+      expiresIn: '1d',
+    });
+
+    res.status(200).json({
+      message: 'User logged in',
+      token,
+      user: <UserWithOutPassword> {
+        _id: dbUser._id,
+        name: dbUser.name,
+        email: dbUser.email,
+      },
+    });
   } catch (err) {
     next(err);
   }
